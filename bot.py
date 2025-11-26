@@ -1,11 +1,10 @@
 import json
-import datetime
 from aiogram import Bot, Dispatcher, types
 from aiogram.filters import Command
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
-import matplotlib.pyplot as plt
 
-TOKEN = "8279321581:AAHyX4ji9T3FQQxocDDNM_2xWvZ3lTtIFcE"
+# ➤ ВСТАВЬ СВОЙ ТОКЕН
+TOKEN = "В8279321581:AAHyX4ji9T3FQQxocDDNM_2xWvZ3lTtIFcE"
 
 bot = Bot(token=TOKEN)
 dp = Dispatcher()
@@ -66,7 +65,7 @@ async def send_day(user_id):
 
     day = user["day"]
     if day > 30:
-        await bot.send_message(user_id, "🎉 Ты прошёл весь курс! Поздравляю!")
+        await bot.send_message(user_id, "🎉 Ты прошёл весь курс! Красавчик!")
         return
 
     text = f"📅 *День {day}*\n\n📝 Задачи:\n{tasks[str(day)]}"
@@ -80,7 +79,6 @@ async def send_day(user_id):
 async def process_callback(call: types.CallbackQuery):
     data = load_data()
     user = data[str(call.from_user.id)]
-
     day = user["day"]
 
     # Выполнено
@@ -93,7 +91,7 @@ async def process_callback(call: types.CallbackQuery):
         await send_day(call.from_user.id)
 
     # Пропустить
-    if call.data.startswith("skip_"):
+    elif call.data.startswith("skip_"):
         user["progress"][str(day)] = 0
         user["day"] += 1
         save_data(data)
@@ -102,37 +100,38 @@ async def process_callback(call: types.CallbackQuery):
         await send_day(call.from_user.id)
 
     # Статистика
-    if call.data == "stats":
+    elif call.data == "stats":
         await send_stats(call.from_user.id)
 
 
 # ------------------------
-# Генерация графика прогресса
+# УПРОЩЁННАЯ СТАТИСТИКА (работает на Render)
 # ------------------------
 async def send_stats(user_id):
     data = load_data()
     user = data[str(user_id)]
     progress = user["progress"]
 
-    days = list(range(1, len(progress) + 1))
-    values = [progress.get(str(d), 0) for d in days]
+    total = len(progress)
+    done = sum(progress.values())
+    skipped = total - done
 
-    if not days:
-        await bot.send_message(user_id, "Пока статистики нет 🙃")
-        return
+    percent = int((done / total) * 100) if total > 0 else 0
 
-    plt.figure(figsize=(8, 4))
-    plt.plot(days, values, marker="o")
-    plt.title("Прогресс обучения (1=выполнено, 0=нет)")
-    plt.xlabel("Дни")
-    plt.ylabel("Прогресс")
-    plt.grid(True)
-    plt.savefig("progress.png")
-    plt.close()
+    text = (
+        f"📊 *Статистика*\n\n"
+        f"Всего дней прошло: {total}\n"
+        f"✔ Выполнено: {done}\n"
+        f"➖ Пропущено: {skipped}\n"
+        f"📈 Прогресс: {percent}%"
+    )
 
-    await bot.send_photo(user_id, photo=open("progress.png", "rb"))
+    await bot.send_message(user_id, text, parse_mode="Markdown")
 
 
 # ------------------------
 # Старт бота
-# -------------------
+# ------------------------
+if __name__ == "__main__":
+    import asyncio
+    asyncio.run(dp.start_polling(bot))
