@@ -1,13 +1,10 @@
 import json
-from aiogram import Bot, Dispatcher, types
-from aiogram.filters import Command
-from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
+from aiogram import Bot, Dispatcher, executor, types
 
-# ➤ ВСТАВЬ СВОЙ ТОКЕН
-TOKEN = "В8279321581:AAHyX4ji9T3FQQxocDDNM_2xWvZ3lTtIFcE"
+TOKEN = "ВСТАВЬ_СВОЙ_ТОКЕН"
 
 bot = Bot(token=TOKEN)
-dp = Dispatcher()
+dp = Dispatcher(bot)
 
 # ------------------------
 # Загрузка данных
@@ -31,20 +28,9 @@ tasks = load_tasks()
 
 
 # ------------------------
-# Кнопки
-# ------------------------
-def day_keyboard(day):
-    return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="✔ Выполнено", callback_data=f"done_{day}")],
-        [InlineKeyboardButton(text="➖ Пропустить", callback_data=f"skip_{day}")],
-        [InlineKeyboardButton(text="📊 Статистика", callback_data="stats")]
-    ])
-
-
-# ------------------------
 # Команда /start
 # ------------------------
-@dp.message(Command("start"))
+@dp.message_handler(commands=["start"])
 async def start_cmd(message: types.Message):
     data = load_data()
     user_id = str(message.from_user.id)
@@ -54,6 +40,18 @@ async def start_cmd(message: types.Message):
         save_data(data)
 
     await send_day(message.from_user.id)
+
+
+# ------------------------
+# Кнопки
+# ------------------------
+def day_keyboard(day):
+    buttons = [
+        [types.InlineKeyboardButton("✔ Выполнено", callback_data=f"done_{day}")],
+        [types.InlineKeyboardButton("➖ Пропустить", callback_data=f"skip_{day}")],
+        [types.InlineKeyboardButton("📊 Статистика", callback_data="stats")]
+    ]
+    return types.InlineKeyboardMarkup(inline_keyboard=buttons)
 
 
 # ------------------------
@@ -68,14 +66,14 @@ async def send_day(user_id):
         await bot.send_message(user_id, "🎉 Ты прошёл весь курс! Красавчик!")
         return
 
-    text = f"📅 *День {day}*\n\n📝 Задачи:\n{tasks[str(day)]}"
-    await bot.send_message(user_id, text, parse_mode="Markdown", reply_markup=day_keyboard(day))
+    text = f"📅 День {day}\n\n📝 Задачи:\n{tasks[str(day)]}"
+    await bot.send_message(user_id, text, reply_markup=day_keyboard(day))
 
 
 # ------------------------
 # Обработка кнопок
 # ------------------------
-@dp.callback_query()
+@dp.callback_query_handler()
 async def process_callback(call: types.CallbackQuery):
     data = load_data()
     user = data[str(call.from_user.id)]
@@ -105,7 +103,7 @@ async def process_callback(call: types.CallbackQuery):
 
 
 # ------------------------
-# УПРОЩЁННАЯ СТАТИСТИКА (работает на Render)
+# Простая статистика
 # ------------------------
 async def send_stats(user_id):
     data = load_data()
@@ -115,23 +113,21 @@ async def send_stats(user_id):
     total = len(progress)
     done = sum(progress.values())
     skipped = total - done
-
-    percent = int((done / total) * 100) if total > 0 else 0
+    percent = int((done / total) * 100) if total else 0
 
     text = (
-        f"📊 *Статистика*\n\n"
+        f"📊 Статистика\n\n"
         f"Всего дней прошло: {total}\n"
         f"✔ Выполнено: {done}\n"
         f"➖ Пропущено: {skipped}\n"
         f"📈 Прогресс: {percent}%"
     )
 
-    await bot.send_message(user_id, text, parse_mode="Markdown")
+    await bot.send_message(user_id, text)
 
 
 # ------------------------
-# Старт бота
+# Запуск
 # ------------------------
 if __name__ == "__main__":
-    import asyncio
-    asyncio.run(dp.start_polling(bot))
+    executor.start_polling(dp, skip_updates=True)
